@@ -1,0 +1,571 @@
+Sub Main()
+
+'change macro names to suit
+Call SQI
+Call WUE
+Call Results
+Call Classification
+Call Visualization
+
+End Sub
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Sub cleanup()
+' Clearing different sheets of the workbook
+
+Dim prompt As String
+
+'Sheet 1_Data
+prompt = MsgBox("Would you like to clear your parameter choices on 1_Data?", vbQuestion + vbYesNo + vbDefaultButton2, "Clear 1_Data")
+If prompt = vbYes Then
+    ThisWorkbook.Sheets("1_Data").Range("D2").Value = ""        'Sheet 1_Data - 1
+    ThisWorkbook.Sheets("1_Data").Range("E1:R1").Value = ""     'Sheet 1_Data - 2
+End If
+
+'Sheet 2_Ranking
+prompt = MsgBox("Would you like to clear your parameter rankings on 2_Ranking?", vbQuestion + vbYesNo + vbDefaultButton2, "Clear 2_Ranking")
+If prompt = vbYes Then
+    ThisWorkbook.Sheets("2_Ranking").Range("B2:B15").Value = "" 'Sheet 2_Ranking
+End If
+
+'Sheet 3_PWCM
+prompt = MsgBox("Would you like to clear your pair wise comparison matrix on 3_PWCM?", vbQuestion + vbYesNo + vbDefaultButton2, "Clear 3_PWCM")
+If prompt = vbYes Then
+    For i = 2 To 14
+        For j = i + 1 To 15
+            ThisWorkbook.Sheets("3_PWCM").Cells(i, j).Value = ""
+        Next
+    Next
+End If
+
+'All results sheets
+prompt = MsgBox("Would you like to clear the results on 4_SQI, 5_WUE, 6_Results and 7_Classification?", vbQuestion + vbYesNo + vbDefaultButton2, "Clear all results")
+
+If prompt = vbYes Then
+    ThisWorkbook.Sheets("4_SQI").Range("B3:F1002").Clear                    'Sheet 4_SQI
+    ThisWorkbook.Sheets("5_WUE").Range("A3:C1002").Clear                    'Sheet 5_WUE
+    ThisWorkbook.Sheets("6_Results").Range("A2:D1002").Clear                'Sheet 6_Results
+    ThisWorkbook.Sheets("7_Classification").Range("E3:W1002").Value2 = ""   'Sheet 7_Classification - 1
+    'Sheet 7_Classification - 2
+    For i = 5 To 8
+        For j = 2 To 3
+            ThisWorkbook.Sheets("7_Classification").Cells(i, j).Value = ""
+        Next
+    Next
+End If
+
+End Sub
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Public Farmer_Number As Integer
+Sub SQI()
+' Computes SQI based on the data entered in sheet "1_Data"
+
+Sheets("1_Data").Activate
+
+' STEP 1: Find size of PWCM (Size_PWCM)
+Dim rng_1 As Range
+Dim lastCol As Integer
+Dim Size_PWCM As Integer
+
+Set rng_1 = ThisWorkbook.Sheets("3_PWCM").Cells
+lastCol = rng_1.Cells(2, Columns.Count).End(xlToLeft).Column
+Size_PWCM = lastCol - 1 'Size_PWCM is one lesser than the last column (because the first column is only headers)
+
+
+
+
+
+'STEP 2: Make A1 (PWCM)
+Dim A1()
+ReDim A1(1 To Size_PWCM, 1 To Size_PWCM)
+For i = 1 To Size_PWCM
+    For j = 1 To Size_PWCM
+        A1(i, j) = ThisWorkbook.Sheets("3_PWCM").Cells(i + 1, j + 1).Value 'Checked
+    Next
+Next
+
+
+
+'STEP 3: Make A2 (Original Weights matrix)
+Dim sum_A2_prep As Double
+sum_A2_prep = 0
+Dim A2_prep() As Double
+ReDim A2_prep(1 To Size_PWCM)
+For j = 1 To Size_PWCM
+    A2_prep(j) = 1 'Assigning all values = 1
+Next
+
+Dim A2() As Double
+ReDim A2(1 To Size_PWCM)
+For j = 1 To Size_PWCM
+    A2(j) = 1       'Assigning all values = 1
+Next
+
+For i = 1 To Size_PWCM
+    For j = 1 To Size_PWCM
+        A2_prep(i) = A2_prep(i) * A1(i, j)
+    If j = Size_PWCM Then
+        A2_prep(i) = A2_prep(i) ^ (1 / Size_PWCM)
+        sum_A2_prep = sum_A2_prep + A2_prep(i)
+    End If
+    Next
+Next
+
+For i = 1 To Size_PWCM
+    A2(i) = A2_prep(i) * 100 / sum_A2_prep
+Next
+
+
+'STEP 4: A3
+Dim A3() As Double
+ReDim A3(1 To Size_PWCM)
+For j = 1 To Size_PWCM
+    A3(j) = 0       'Assigning all values = 0
+Next
+
+For i = 1 To Size_PWCM
+    For j = 1 To Size_PWCM
+        A3(i) = A3(i) + (A1(i, j) * A2(j))
+    Next
+Next
+
+
+
+
+
+'STEP 4: A4, Use Random Index (RI) to get to Consistency Index (CI). Error message in case inconsistent weights.
+Dim sum_A4 As Double
+sum_A4 = 0
+Dim lambda_max_avg_A4 As Double
+Dim A4() As Double
+ReDim A4(1 To Size_PWCM)
+For i = 1 To Size_PWCM
+        A4(i) = A3(i) / A2(i)
+        sum_A4 = sum_A4 + A4(i)
+Next
+
+lambda_max_avg_A4 = sum_A4 / Size_PWCM
+
+' RI
+Dim RI() As Double 'Random Index numbers from Saaty (1980) and Abu Dabous & Alkass (2008).
+ReDim RI(15)
+RI(1) = 0
+RI(2) = 0
+RI(3) = 0.52
+RI(4) = 0.89
+RI(5) = 1.11
+RI(6) = 1.25
+RI(7) = 1.35
+RI(8) = 1.4
+RI(9) = 1.45
+RI(10) = 1.49
+RI(11) = 1.51
+RI(12) = 1.56
+RI(13) = 1.57
+RI(14) = 1.57
+
+' CI (Consistency Index)
+Dim CI As Double
+If Size_PWCM > 2 Then
+    CI = (lambda_max_avg_A4 - Size_PWCM) / (Size_PWCM - 1)
+End If
+
+' CR (Consistency Ratio)
+If Size_PWCM > 2 Then
+    CR = CI / RI(Size_PWCM)
+    If CR > 0.1 Then
+        MsgBox "The weights are not consistent. Please re-evaluate your pairwise comparison decisions to make more consistent choices to bring the Consistency Ratio (CR) below 0.1. Current CR = " & Round(CR, 2)
+    End If
+End If
+
+
+
+
+
+'STEP 5: Final decision (Normalization of data matrix (according to low/high), Final priority = A2 * data matrix)
+Dim lastRow As Integer
+
+Dim row As Integer
+row = 1     'first two rows are automatically filled
+While Len(ThisWorkbook.Sheets("1_Data").Cells(row, 1)) > 0
+    row = row + 1
+Wend
+Farmer_Number = row - 3 'No. of farmers is three lesser than the last last (because the first two rows are not important)
+
+' Matrix for Farmers_Data
+Dim Farmers_Data() As Double
+ReDim Farmers_Data(1 To Farmer_Number, 1 To Size_PWCM)
+For i = 1 To Farmer_Number
+    For j = 1 To Size_PWCM
+        Farmers_Data(i, j) = ThisWorkbook.Sheets("1_Data").Cells(i + 2, j + 4).Value
+    Next j
+Next i
+
+'Normalized_Matrix
+Dim max_value As Double     'Temp placeholders for max value
+Dim min_value As Double     'Temp placeholders for min value
+Dim Farmers_Data_Normalized() As Double
+ReDim Farmers_Data_Normalized(1 To Farmer_Number, 1 To Size_PWCM)
+Dim rng_3 As Range          'Column range (for the current column), so that max or min value can be searched, and subsequently normalization can be done.
+Dim temp_variable As String 'To put into message box
+Dim temp_ideal_value As Double
+Dim idea_value() As Double
+ReDim ideal_value(1 To Size_PWCM)
+
+For j = 1 To Size_PWCM
+    If ThisWorkbook.Sheets("1_Data").Cells(2, j + 4).Value = "More" Then
+        ideal_value(j) = 1
+    ElseIf ThisWorkbook.Sheets("1_Data").Cells(2, j + 4).Value = "Less" Then
+        ideal_value(j) = 0
+    Else
+        temp_variable = ThisWorkbook.Sheets("1_Data").Cells(1, j + 4).Value
+        ideal_value(j) = InputBox("What is the ideal value of " & temp_variable & "?", "Enter ideal value", "")
+    End If
+Next
+        
+For i = 1 To Farmer_Number
+    For j = 1 To Size_PWCM
+        If ideal_value(j) = 1 Then
+            Set rng_3 = ThisWorkbook.Sheets("1_Data").Range(Cells(3, 5 + j - 1), Cells(3 + Farmer_Number - 1, 5 + j - 1))
+            max_value = Application.WorksheetFunction.Max(rng_3)
+            Farmers_Data_Normalized(i, j) = Farmers_Data(i, j) / max_value
+        ElseIf ideal_value(j) = 0 Then
+            Set rng_3 = ThisWorkbook.Sheets("1_Data").Range(Cells(3, 5 + j - 1), Cells(3 + Farmer_Number - 1, 5 + j - 1))
+            min_value = Application.WorksheetFunction.Min(rng_3)
+            Farmers_Data_Normalized(i, j) = min_value / Farmers_Data(i, j)
+        Else
+            If Farmers_Data(i, j) < ideal_value(j) Then
+                Farmers_Data_Normalized(i, j) = Farmers_Data(i, j) / ideal_value(j)
+            ElseIf Farmers_Data(i, j) >= temp_ideal_value Then
+                Farmers_Data_Normalized(i, j) = ideal_value(j) / Farmers_Data(i, j)
+            End If
+        End If
+    Next j
+Next i
+
+
+' Weight matrix * normalized data matrix
+Dim SQI() As Double
+ReDim SQI(1 To Farmer_Number)
+
+For i = 1 To Farmer_Number
+    SQI(i) = 0 'Assigning all values = 0.
+Next i
+
+For i = 1 To Farmer_Number
+    For j = 1 To Size_PWCM
+        SQI(i) = SQI(i) + (Farmers_Data_Normalized(i, j) * A2(j))
+    Next j
+    SQI(i) = Round(SQI(i), 3)
+    ThisWorkbook.Sheets("4_SQI").Cells(i + 2, 3).Value = SQI(i)
+    
+    ' Editing in sheet "SQI"
+    ThisWorkbook.Sheets("4_SQI").Cells(i + 2, 2).Value = ThisWorkbook.Sheets("1_Data").Cells(i + 2, 1).Value    ' copying farmer names or ID
+    ThisWorkbook.Sheets("4_SQI").Cells(i + 2, 6).Value = i                                                      ' add ranking automatically
+Next i
+
+Sheets("4_SQI").Activate
+
+End Sub
+
+'References:
+' 1. Abu Dabous, S., & Alkass, S. (2008). Decision support method for multi-criteria selection of bridge rehabilitation strategy. Construction Management and Economics, 26(8), 883-893.
+' 2. Saaty, T.L. (1980). The Analytic Hierarchy Process. McGraw-Hill, New York
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Sub WUE()
+
+
+Dim row As Integer
+Dim Farmer_Number As Integer
+row = 1     'first two rows are automatically filled
+While Len(ThisWorkbook.Sheets("1_Data").Cells(row, 1)) > 0
+    row = row + 1
+Wend
+Farmer_Number = row - 3 'No. of farmers is three lesser than the last last (because the first two rows are not important)
+
+
+'WUE calculate
+Dim WUE() As Double
+Dim total_input_water() As Double
+ReDim WUE(1 To Farmer_Number)
+ReDim total_input_water(1 To Farmer_Number)
+Dim irr_depth As Double
+
+irr_depth = InputBox("Please enter the average irrigation depth (in cm)?", "Average irrigation depth", "")
+ThisWorkbook.Sheets("1_Data").Cells(2, 4).Value = irr_depth
+    
+For i = 1 To Farmer_Number
+    total_input_water(i) = ThisWorkbook.Sheets("1_Data").Cells(i + 2, 3).Value + (irr_depth * ThisWorkbook.Sheets("1_Data").Cells(i + 2, 4).Value)
+    WUE(i) = ThisWorkbook.Sheets("1_Data").Cells(i + 2, 2).Value / total_input_water(i)     'Units: kg/ha/cm
+    WUE(i) = WUE(i) / 100       'Units conversion from kg/ha/cm -> kg/m3
+Next i
+
+
+
+'Copy pasting data
+For i = 1 To Farmer_Number
+    ThisWorkbook.Sheets("5_WUE").Cells(i + 2, 1).Value = i  'Index
+    ThisWorkbook.Sheets("5_WUE").Cells(i + 2, 2).Value = ThisWorkbook.Sheets("1_Data").Cells(i + 2, 1).Value
+    ThisWorkbook.Sheets("5_WUE").Cells(i + 2, 3).Value = WUE(i)
+Next i
+
+
+Sheets("5_WUE").Activate
+End Sub
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Sub Results()
+    
+Dim prompt As String
+
+prompt = MsgBox("Have you computed SQI?", vbQuestion + vbYesNo + vbDefaultButton2, "")
+If prompt = vbYes Then
+    prompt = MsgBox("Have you computed WUE?", vbQuestion + vbYesNo + vbDefaultButton2, "")
+    If prompt = vbYes Then
+        GoTo Results_Compilation
+    End If
+Else
+    Exit Sub
+End If
+
+
+Results_Compilation:
+'Find last row, number of farmers (Farmer_Number). Max number of farmers is 200. Can be changed on next line. For i = 1 to <Max. number of farmers>
+Dim row As Integer
+Dim Farmer_Number As Integer
+row = 1     'first two rows are automatically filled
+While Len(ThisWorkbook.Sheets("1_Data").Cells(row, 1)) > 0
+    row = row + 1
+Wend
+Farmer_Number = row - 3 'No. of farmers is three lesser than the last last (because the first two rows are not important)
+
+    
+For i = 1 To Farmer_Number
+    ThisWorkbook.Sheets("6_Results").Cells(i + 1, 1) = i
+    ThisWorkbook.Sheets("6_Results").Cells(i + 1, 2) = ThisWorkbook.Sheets("1_Data").Cells(i + 2, 1).Value
+    ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3) = Round(ThisWorkbook.Sheets("4_SQI").Cells(i + 2, 3), 2)
+    ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4) = Round(ThisWorkbook.Sheets("5_WUE").Cells(i + 2, 3), 2)
+Next i
+    
+Sheets("6_Results").Activate
+    
+End Sub
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Sub Classification()
+
+    Dim med_SQI As Double, med_WUE As Double
+    Dim Number_S As Integer, Number_NL As Integer, Number_WL As Integer, Number_NLWL As Integer
+    
+    Number_S = 0
+    Number_NL = 0
+    Number_WL = 0
+    Number_WLNL = 0
+    
+    med_SQI = ThisWorkbook.Sheets("7_Classification").Cells(2, 1).Value
+    med_WUE = ThisWorkbook.Sheets("7_Classification").Cells(2, 2).Value
+    
+    For i = 1 To Farmer_Number
+        If ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value <= med_SQI And ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value <= med_WUE Then
+            Number_NLWL = Number_NLWL + 1
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NLWL + 2, 5).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 1).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NLWL + 2, 6).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 2).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NLWL + 2, 7).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NLWL + 2, 8).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value
+        ElseIf ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value <= med_SQI And ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value > med_WUE Then
+            Number_NL = Number_NL + 1
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NL + 2, 10).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 1).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NL + 2, 11).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 2).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NL + 2, 12).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_NL + 2, 13).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value
+        ElseIf ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value > med_SQI And ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value <= med_WUE Then
+            Number_WL = Number_WL + 1
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_WL + 2, 15).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 1).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_WL + 2, 16).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 2).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_WL + 2, 17).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_WL + 2, 18).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value
+        ElseIf ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value > med_SQI And ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value > med_WUE Then
+            Number_S = Number_S + 1
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_S + 2, 20).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 1).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_S + 2, 21).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 2).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_S + 2, 22).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 3).Value
+            ThisWorkbook.Sheets("7_Classification").Cells(Number_S + 2, 23).Value = ThisWorkbook.Sheets("6_Results").Cells(i + 1, 4).Value
+        End If
+    Next i
+    
+    ThisWorkbook.Sheets("7_Classification").Cells(5, 1).Value = "NLWL"
+    ThisWorkbook.Sheets("7_Classification").Cells(5, 2).Value = Number_NLWL
+    ThisWorkbook.Sheets("7_Classification").Cells(5, 3).Value = Round(Number_NLWL / Farmer_Number * 100, 1)
+    ThisWorkbook.Sheets("7_Classification").Cells(6, 1).Value = "NL"
+    ThisWorkbook.Sheets("7_Classification").Cells(6, 2).Value = Number_NL
+    ThisWorkbook.Sheets("7_Classification").Cells(6, 3).Value = Round(Number_NL / Farmer_Number * 100, 1)
+    ThisWorkbook.Sheets("7_Classification").Cells(7, 1).Value = "WL"
+    ThisWorkbook.Sheets("7_Classification").Cells(7, 2).Value = Number_WL
+    ThisWorkbook.Sheets("7_Classification").Cells(7, 3).Value = Round(Number_WL / Farmer_Number * 100, 1)
+    ThisWorkbook.Sheets("7_Classification").Cells(8, 1).Value = "S"
+    ThisWorkbook.Sheets("7_Classification").Cells(8, 2).Value = Number_S
+    ThisWorkbook.Sheets("7_Classification").Cells(8, 3).Value = Round(Number_S / Farmer_Number * 100, 1)
+    
+    Sheets("7_Classification").Activate
+     
+End Sub
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Option Explicit
+
+Sub Visualization()
+    
+    ' Raw visualization code created by: Tim Allen (https://stackoverflow.com/a/68414093/4590888)
+    
+    'Find last row, number of farmers (Farmer_Number). Max number of farmers is 200. Can be changed on next line. For i = 1 to <Max. number of farmers>
+    Dim row As Integer, i As Integer
+    Dim Farmer_Number As Integer
+    row = 1     'first two rows are automatically filled
+    While Len(ThisWorkbook.Sheets("1_Data").Cells(row, 1)) > 0
+        row = row + 1
+    Wend
+    Farmer_Number = row - 3 'No. of farmers is three lesser than the last last (because the first two rows are not important)
+    
+    Dim Chart1 As Chart, rngDLabel As Range, rngX As Range, rngY As Range, ws As Worksheet
+    Dim medX, medY
+    Dim padding As Double   'for buffer around extreme points
+    Dim ptcnt As Integer
+    
+    Set ws = ThisWorkbook.Sheets("6_Results")
+    Set rngX = ws.Range(ws.Cells(2, 3), ws.Cells(1 + Farmer_Number, 3))
+    Set rngY = ws.Range(ws.Cells(2, 4), ws.Cells(1 + Farmer_Number, 4))
+    
+    Set Chart1 = Charts.Add()
+    
+    With Chart1
+        .Name = "8_Visualization"
+        .ChartType = xlXYScatter
+        .HasTitle = True
+        .ChartTitle.Text = "Farm Performance Visualization"
+        .ChartTitle.Font.Size = 24
+                
+        ' Datapoints, marker styles & colors
+        .SeriesCollection.NewSeries
+        .SeriesCollection(1).Name = "Farm Index"
+        .SeriesCollection(1).XValues = rngX
+        .SeriesCollection(1).Values = rngY
+        .SeriesCollection(1).MarkerStyle = xlMarkerStyleCircle
+        .SeriesCollection(1).MarkerForegroundColor = RGB(0, 0, 0)
+        .SeriesCollection(1).MarkerBackgroundColor = RGB(0, 0, 0)
+        
+        
+        ' Axes extents, ticklabels, titles
+        padding = 0.1 * WorksheetFunction.Max(rngX)
+        .Axes(xlCategory).MinimumScale = WorksheetFunction.Min(rngX) - padding
+        .Axes(xlCategory).MaximumScale = WorksheetFunction.Max(rngX) + padding
+        padding = 0.1 * WorksheetFunction.Max(rngY)
+        .Axes(xlValue).MinimumScale = WorksheetFunction.Min(rngY) - padding
+        .Axes(xlValue).MaximumScale = WorksheetFunction.Max(rngY) + padding
+        
+        .Axes(xlCategory).TickLabels.Font.Size = 12
+        .Axes(xlValue).TickLabels.Font.Size = 12
+        .Axes(xlCategory).TickLabels.NumberFormat = "0"
+        .Axes(xlValue).TickLabels.NumberFormat = "0"
+        
+        .Axes(xlCategory).HasTitle = True
+        .Axes(xlCategory).AxisTitle.Caption = "SQI (%)"
+        .Axes(xlCategory).AxisTitle.Font.Size = 14
+        .Axes(xlValue).HasTitle = True
+        .Axes(xlValue).AxisTitle.Caption = "WUE (kg/m³)"
+        .Axes(xlValue).AxisTitle.Font.Size = 14
+        
+        
+        ' Datalabels
+        .SeriesCollection(1).HasDataLabels = True
+        ptcnt = Chart1.SeriesCollection(1).Points.Count
+        For i = 1 To ptcnt
+            Chart1.SeriesCollection(1).Points(i).DataLabel.Text = ws.Cells(i + 1, 1).Value
+            Chart1.SeriesCollection(1).Points(i).DataLabel.Top = Chart1.SeriesCollection(1).Points(i).DataLabel.Top - 100
+        Next i
+        .SeriesCollection(1).DataLabels.Position = xlLabelPositionBelow
+        
+        'Legend
+        .HasLegend = True
+        .Legend.Position = xlLegendPositionBottom
+        .Legend.Font.Size = 16
+    End With
+    
+    medX = Application.Median(rngX)
+    medY = Application.Median(rngY)
+    AddQuadrants Chart1, medX, medY
+    
+   
+    ' Labeling each point
+    Dim iii As Integer, pp As Integer, dlcount As Integer
+    Dim SingleCell As Range, CellCounter As Integer
+    
+    
+    
+End Sub
+
+'Create quadrants in `cht` using the supplied coordinates
+Sub AddQuadrants(cht As Chart, medX, medY)
+ 
+    Dim minX, maxX, minY, maxY, xAxis As Axis, yAxis As Axis
+    Dim xSpan, ySpan, shp1
+    Dim Q1W, Q1H
+    
+    Set xAxis = cht.Axes(xlCategory)
+    Set yAxis = cht.Axes(xlValue)
+    
+    minX = xAxis.MinimumScale
+    maxX = xAxis.MaximumScale
+    xSpan = maxX - minX
+    
+    minY = yAxis.MinimumScale
+    maxY = yAxis.MaximumScale
+    ySpan = maxY - minY
+    
+    Q1W = ((medX - minX) / xSpan) * xAxis.Width
+    Q1H = ((maxY - medY) / ySpan) * yAxis.Height
+    
+    Quadrant cht, xAxis.Left, yAxis.Top, Q1W, Q1H, RGB(190, 174, 125)
+    Quadrant cht, xAxis.Left + Q1W, yAxis.Top, xAxis.Width - Q1W, Q1H, RGB(183, 214, 163)
+    Quadrant cht, xAxis.Left, yAxis.Top + Q1H, Q1W, yAxis.Height - Q1H, RGB(223, 127, 127)
+    Quadrant cht, xAxis.Left + Q1W, yAxis.Top + Q1H, xAxis.Width - Q1W, yAxis.Height - Q1H, RGB(161, 184, 225)
+    
+End Sub
+
+'Add a rectangle to `cht` with the supplied position/size and color
+Function Quadrant(cht As Chart, l, t, w, h, clr As Long) As Shape
+    Dim rv As Shape
+    Set rv = cht.Shapes.AddShape(msoShapeRectangle, l, t, w, h)
+    rv.Fill.ForeColor.RGB = clr
+    rv.Fill.Transparency = 0.6
+    rv.Fill.Solid
+    Set Quadrant = rv
+End Function
